@@ -103,6 +103,12 @@ export function Navbar() {
                     Logged in as <span className="font-semibold text-gray-300">{currentUser.email}</span>
                   </div>
                   <DropdownMenuItem asChild className="focus:bg-pink-500/10 focus:text-pink-500 cursor-pointer">
+                    <Link to="/profile" className="flex items-center w-full">
+                      <User className="w-4 h-4 mr-2" />
+                      My Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="focus:bg-pink-500/10 focus:text-pink-500 cursor-pointer">
                     <Link to="/orders" className="flex items-center w-full">
                       <Package className="w-4 h-4 mr-2" />
                       My Orders
@@ -169,6 +175,18 @@ export function Navbar() {
                     <p className="text-xs text-gray-500">Logged in as</p>
                     <p className="text-sm font-semibold text-white truncate">{currentUser.displayName || currentUser.email}</p>
                   </div>
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      isActive("/profile")
+                        ? "bg-pink-500/10 text-pink-500"
+                        : "text-gray-300 hover:bg-gray-800"
+                    }`}
+                  >
+                    <User className="w-4 h-4 inline mr-2" />
+                    My Profile
+                  </Link>
                   <button
                     onClick={() => {
                       handleLogout();

@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import { db } from "../config/firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
@@ -9,10 +12,56 @@ import { useNavigate, Link } from "react-router";
 
 export function Checkout() {
   const { cartItems, totalPrice, placeOrder } = useCart();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
+
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cod" | "upi">("cod");
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Form Fields States
+  const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [addressLine, setAddressLine] = useState("");
+  const [city, setCity] = useState("Chennai");
+  const [state, setState] = useState("Tamil Nadu");
+  const [pinCode, setPinCode] = useState("600017");
+  const [landmark, setLandmark] = useState("");
+  const [instructions, setInstructions] = useState("");
+  const [saveToProfile, setSaveToProfile] = useState(true);
+
+  // Load profile details from Firestore on mount
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    setEmail(currentUser.email || "");
+
+    const fetchProfile = async () => {
+      try {
+        const docRef = doc(db, "users", currentUser.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data.name) setName(data.name);
+          else if (currentUser.displayName) setName(currentUser.displayName);
+
+          if (data.phone) setPhone(data.phone);
+          if (data.addressLine) setAddressLine(data.addressLine);
+          if (data.city) setCity(data.city);
+          if (data.state) setState(data.state);
+          if (data.pinCode) setPinCode(data.pinCode);
+          if (data.landmark) setLandmark(data.landmark);
+        } else if (currentUser.displayName) {
+          setName(currentUser.displayName);
+        }
+      } catch (err) {
+        console.error("Error loading checkout profile:", err);
+      }
+    };
+
+    fetchProfile();
+  }, [currentUser]);
 
   const deliveryFee = totalPrice > 0 ? 40 : 0;
   const tax = totalPrice * 0.05;
@@ -29,7 +78,21 @@ export function Checkout() {
 
     setLoading(true);
     try {
-      // Save order to history (Firestore or localStorage fallback)
+      // 1. Optional: Save these details back to user's database profile
+      if (saveToProfile && currentUser) {
+        await setDoc(doc(db, "users", currentUser.uid), {
+          name,
+          phone,
+          addressLine,
+          city,
+          state,
+          pinCode,
+          landmark,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      }
+
+      // 2. Submit the order to database
       await placeOrder(
         paymentMethod === "cod" 
           ? "Cash on Delivery" 
@@ -37,6 +100,7 @@ export function Checkout() {
           ? "UPI / Online Payment" 
           : "Credit / Debit Card"
       );
+
       setOrderPlaced(true);
       
       // Redirect after 3 seconds
@@ -107,20 +171,38 @@ export function Checkout() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Full Name *
                       </label>
-                      <Input type="text" placeholder="Enter your name" required />
+                      <Input 
+                        type="text" 
+                        placeholder="Enter your name" 
+                        required 
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Phone Number *
                       </label>
-                      <Input type="tel" placeholder="+91 98765 43210" required />
+                      <Input 
+                        type="tel" 
+                        placeholder="+91 98765 43210" 
+                        required 
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                      />
                     </div>
                   </div>
                   <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Email Address
                     </label>
-                    <Input type="email" placeholder="your.email@example.com" />
+                    <Input 
+                      type="email" 
+                      placeholder="your.email@example.com" 
+                      readOnly
+                      value={email}
+                      className="bg-gray-100 cursor-not-allowed text-gray-500"
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -134,20 +216,38 @@ export function Checkout() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Address Line *
                       </label>
-                      <Input type="text" placeholder="Street address" required />
+                      <Input 
+                        type="text" 
+                        placeholder="Street address" 
+                        required 
+                        value={addressLine}
+                        onChange={(e) => setAddressLine(e.target.value)}
+                      />
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           City *
                         </label>
-                        <Input type="text" placeholder="Chennai" required />
+                        <Input 
+                          type="text" 
+                          placeholder="Chennai" 
+                          required 
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           State *
                         </label>
-                        <Input type="text" placeholder="Tamil Nadu" required />
+                        <Input 
+                          type="text" 
+                          placeholder="Tamil Nadu" 
+                          required 
+                          value={state}
+                          onChange={(e) => setState(e.target.value)}
+                        />
                       </div>
                     </div>
                     <div className="grid md:grid-cols-2 gap-4">
@@ -155,13 +255,24 @@ export function Checkout() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           PIN Code *
                         </label>
-                        <Input type="text" placeholder="600017" required />
+                        <Input 
+                          type="text" 
+                          placeholder="600017" 
+                          required 
+                          value={pinCode}
+                          onChange={(e) => setPinCode(e.target.value)}
+                        />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Landmark
                         </label>
-                        <Input type="text" placeholder="Near..." />
+                        <Input 
+                          type="text" 
+                          placeholder="Near..." 
+                          value={landmark}
+                          onChange={(e) => setLandmark(e.target.value)}
+                        />
                       </div>
                     </div>
                     <div>
@@ -171,7 +282,22 @@ export function Checkout() {
                       <Textarea
                         placeholder="Any special instructions for delivery..."
                         rows={3}
+                        value={instructions}
+                        onChange={(e) => setInstructions(e.target.value)}
                       />
+                    </div>
+
+                    <div className="pt-2 flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="saveProfile"
+                        checked={saveToProfile}
+                        onChange={(e) => setSaveToProfile(e.target.checked)}
+                        className="w-4 h-4 text-pink-500 rounded border-gray-300 focus:ring-pink-500"
+                      />
+                      <label htmlFor="saveProfile" className="text-sm font-semibold text-gray-700 cursor-pointer">
+                        Save this address to my profile details for future orders
+                      </label>
                     </div>
                   </div>
                 </CardContent>
@@ -267,7 +393,7 @@ export function Checkout() {
                   <Button
                     type="submit"
                     disabled={loading}
-                    className="w-full mt-6 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white py-6 text-lg"
+                    className="w-full mt-6 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white py-6 text-lg cursor-pointer"
                   >
                     {loading ? "Placing Order..." : "Place Order"}
                   </Button>
