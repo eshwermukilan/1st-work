@@ -86,7 +86,7 @@ export function Navbar() {
             {currentUser ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2 px-2 hover:bg-gray-800 text-white cursor-pointer select-none">
+                  <button className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all px-2 py-1.5 hover:bg-gray-800 text-white cursor-pointer select-none outline-none">
                     <Avatar className="w-8 h-8 border border-pink-500/30">
                       <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-500 text-white text-xs font-bold">
                         {currentUser.displayName ? currentUser.displayName.split(" ").map((n) => n[0]).join("") : "U"}
@@ -96,7 +96,7 @@ export function Navbar() {
                       {currentUser.displayName || "User"}
                     </span>
                     <ChevronDown className="w-4 h-4 text-gray-500" />
-                  </Button>
+                  </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56 bg-gray-950 border-gray-800 text-white">
                   <div className="px-3 py-2 text-xs text-gray-400 border-b border-gray-900 mb-1">
