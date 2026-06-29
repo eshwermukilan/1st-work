@@ -2,6 +2,7 @@ import { Outlet } from "react-router";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import { CartProvider } from "./context/CartContext";
+import { AuthProvider } from "./context/AuthContext";
 import { useEffect } from "react";
 
 export function Root() {
@@ -10,14 +11,16 @@ export function Root() {
   }, []);
 
   return (
-    <CartProvider>
-      <div className="flex flex-col min-h-screen">
-        <Navbar />
-        <main className="flex-grow">
-          <Outlet />
-        </main>
-        <Footer />
-      </div>
-    </CartProvider>
+    <AuthProvider>
+      <CartProvider>
+        <div className="flex flex-col min-h-screen">
+          <Navbar />
+          <main className="flex-grow">
+            <Outlet />
+          </main>
+          <Footer />
+        </div>
+      </CartProvider>
+    </AuthProvider>
   );
-}
+}

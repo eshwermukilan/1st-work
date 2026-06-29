@@ -12,12 +12,13 @@ export function Checkout() {
   const navigate = useNavigate();
   const [paymentMethod, setPaymentMethod] = useState<"card" | "cod" | "upi">("cod");
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const deliveryFee = totalPrice > 0 ? 40 : 0;
   const tax = totalPrice * 0.05;
   const grandTotal = totalPrice + deliveryFee + tax;
 
-  const handlePlaceOrder = (e: React.FormEvent) => {
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (cartItems.length === 0) {
@@ -26,25 +27,40 @@ export function Checkout() {
       return;
     }
 
-    // Save order to history
-    placeOrder(paymentMethod === "cod" ? "Cash on Delivery" : paymentMethod === "upi" ? "UPI / Online Payment" : "Credit / Debit Card");
-    setOrderPlaced(true);
-    
-    // Redirect after 3 seconds
-    setTimeout(() => {
-      navigate("/");
-    }, 3000);
+    setLoading(true);
+    try {
+      // Save order to history (Firestore or localStorage fallback)
+      await placeOrder(
+        paymentMethod === "cod" 
+          ? "Cash on Delivery" 
+          : paymentMethod === "upi" 
+          ? "UPI / Online Payment" 
+          : "Credit / Debit Card"
+      );
+      setOrderPlaced(true);
+      
+      // Redirect after 3 seconds
+      setTimeout(() => {
+        navigate("/");
+      }, 3000);
+    } catch (err) {
+      console.error(err);
+      alert("An error occurred while placing your order. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (orderPlaced) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="max-w-md w-full mx-4">
+        <Card className="max-w-md w-full mx-4 shadow-2xl">
           <CardContent className="p-12 text-center">
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-12 h-12 text-green-500" />
+              <CheckCircle className="w-12 h-12 text-green-500 animate-bounce" />
             </div>
             <h2 className="text-3xl font-bold text-gray-900 mb-4">Order Placed Successfully!</h2>
+
             <p className="text-gray-600 mb-2">Thank you for your order.</p>
             <p className="text-gray-600 mb-6">Your food will be delivered in 30-45 minutes.</p>
             <div className="flex gap-3 justify-center mb-6">
@@ -250,9 +266,10 @@ export function Checkout() {
 
                   <Button
                     type="submit"
+                    disabled={loading}
                     className="w-full mt-6 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white py-6 text-lg"
                   >
-                    Place Order
+                    {loading ? "Placing Order..." : "Place Order"}
                   </Button>
 
                   <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">

@@ -1,13 +1,22 @@
 import { Link, useLocation } from "react-router";
 import { Button } from "./ui/button";
-import { ShoppingCart, Menu, X, ChefHat, Package } from "lucide-react";
+import { ShoppingCart, Menu, X, ChefHat, Package, LogOut, ChevronDown, User } from "lucide-react";
 import { useState } from "react";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const { totalItems } = useCart();
+  const { currentUser, logout } = useAuth();
 
   const navLinks = [
     { path: "/", label: "Home" },
@@ -17,6 +26,14 @@ export function Navbar() {
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (err) {
+      console.error("Failed to log out", err);
+    }
+  };
 
   return (
     <nav className="sticky top-0 z-50 bg-gray-900 border-b border-gray-800 shadow-sm">
@@ -51,16 +68,6 @@ export function Navbar() {
 
           {/* CTA Buttons */}
           <div className="hidden md:flex items-center gap-4">
-            <Link to="/orders">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative hover:bg-pink-500/10 hover:text-pink-500 text-gray-300"
-                title="My Orders"
-              >
-                <Package className="w-5 h-5" />
-              </Button>
-            </Link>
             <Link to="/cart">
               <Button
                 variant="ghost"
@@ -73,11 +80,53 @@ export function Navbar() {
                 </span>
               </Button>
             </Link>
-            <Link to="/menu">
-              <Button className="bg-pink-500 hover:bg-pink-600 text-white">
-                Order Now
-              </Button>
-            </Link>
+
+            {currentUser ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 px-2 hover:bg-gray-800 text-white cursor-pointer select-none">
+                    <Avatar className="w-8 h-8 border border-pink-500/30">
+                      <AvatarFallback className="bg-gradient-to-br from-pink-500 to-purple-500 text-white text-xs font-bold">
+                        {currentUser.displayName ? currentUser.displayName.split(" ").map((n) => n[0]).join("") : "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-sm font-medium text-gray-300 max-w-[100px] truncate">
+                      {currentUser.displayName || "User"}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-gray-950 border-gray-800 text-white">
+                  <div className="px-3 py-2 text-xs text-gray-400 border-b border-gray-900 mb-1">
+                    Logged in as <span className="font-semibold text-gray-300">{currentUser.email}</span>
+                  </div>
+                  <DropdownMenuItem asChild className="focus:bg-pink-500/10 focus:text-pink-500 cursor-pointer">
+                    <Link to="/orders" className="flex items-center w-full">
+                      <Package className="w-4 h-4 mr-2" />
+                      My Orders
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-gray-900" />
+                  <DropdownMenuItem onClick={handleLogout} className="focus:bg-red-500/10 focus:text-red-400 text-red-500 cursor-pointer">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Link to="/login">
+                  <Button variant="ghost" className="text-gray-300 hover:bg-gray-800 hover:text-white">
+                    Sign In
+                  </Button>
+                </Link>
+                <Link to="/menu">
+                  <Button className="bg-pink-500 hover:bg-pink-600 text-white">
+                    Order Now
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -111,18 +160,51 @@ export function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              <Link
-                to="/orders"
-                onClick={() => setIsMenuOpen(false)}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  isActive("/orders")
-                    ? "bg-pink-500/10 text-pink-500"
-                    : "text-gray-300 hover:bg-gray-800"
-                }`}
-              >
-                <Package className="w-4 h-4 inline mr-2" />
-                My Orders
-              </Link>
+
+              {currentUser ? (
+                <>
+                  <div className="px-4 py-2 border-b border-gray-850">
+                    <p className="text-xs text-gray-500">Logged in as</p>
+                    <p className="text-sm font-semibold text-white truncate">{currentUser.displayName || currentUser.email}</p>
+                  </div>
+                  <Link
+                    to="/orders"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`px-4 py-2 rounded-lg transition-colors ${
+                      isActive("/orders")
+                        ? "bg-pink-500/10 text-pink-500"
+                        : "text-gray-300 hover:bg-gray-800"
+                    }`}
+                  >
+                    <Package className="w-4 h-4 inline mr-2" />
+                    My Orders
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setIsMenuOpen(false);
+                    }}
+                    className="px-4 py-2 rounded-lg transition-colors text-left text-red-500 hover:bg-red-500/10 flex items-center w-full cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4 inline mr-2" />
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    isActive("/login")
+                      ? "bg-pink-500/10 text-pink-500"
+                      : "text-gray-300 hover:bg-gray-800"
+                  }`}
+                >
+                  <User className="w-4 h-4 inline mr-2" />
+                  Sign In
+                </Link>
+              )}
+
               <div className="px-4 pt-2 flex gap-2">
                 <Link to="/cart" className="flex-1" onClick={() => setIsMenuOpen(false)}>
                   <Button

@@ -1,4 +1,7 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { useAuth } from "./AuthContext";
+import { db } from "../config/firebase";
+import { doc, setDoc, getDocs, collection, query, where } from "firebase/firestore";
 
 export interface CartItem {
   id: number;
@@ -10,6 +13,7 @@ export interface CartItem {
 
 export interface Order {
   id: string;
+  userId: string;
   items: CartItem[];
   totalPrice: number;
   deliveryFee: number;
@@ -17,6 +21,7 @@ export interface Order {
   grandTotal: number;
   orderDate: string;
   paymentMethod: string;
+  status?: string;
 }
 
 interface CartContextType {
@@ -27,7 +32,7 @@ interface CartContextType {
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
-  placeOrder: (paymentMethod: string) => void;
+  placeOrder: (paymentMethod: string) => Promise<void>;
   orders: Order[];
 }
 
@@ -36,14 +41,42 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const { currentUser } = useAuth();
 
-  // Load orders from localStorage on mount
+  // Load orders from Firestore when user authentication changes
   useEffect(() => {
-    const savedOrders = localStorage.getItem('digitalChefOrders');
-    if (savedOrders) {
-      setOrders(JSON.parse(savedOrders));
+    if (!currentUser) {
+      setOrders([]);
+      return;
     }
-  }, []);
+
+    const fetchOrders = async () => {
+      try {
+        const q = query(
+          collection(db, "orders"),
+          where("userId", "==", currentUser.uid)
+        );
+        const querySnapshot = await getDocs(q);
+        const fetchedOrders: Order[] = [];
+        querySnapshot.forEach((doc) => {
+          fetchedOrders.push(doc.data() as Order);
+        });
+
+        // Sort locally by orderDate descending
+        fetchedOrders.sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+        setOrders(fetchedOrders);
+      } catch (err) {
+        console.error("Error fetching orders from Firestore:", err);
+        // Fallback to localStorage if Firestore call fails (e.g. before config setup)
+        const savedOrders = localStorage.getItem('digitalChefOrders');
+        if (savedOrders) {
+          setOrders(JSON.parse(savedOrders));
+        }
+      }
+    };
+
+    fetchOrders();
+  }, [currentUser]);
 
   const addToCart = (item: Omit<CartItem, "quantity">) => {
     setCartItems((prevItems) => {
@@ -77,14 +110,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setCartItems([]);
   };
 
-  const placeOrder = (paymentMethod: string) => {
+  const placeOrder = async (paymentMethod: string) => {
     const subtotal = totalPrice;
     const deliveryFee = subtotal > 0 ? 40 : 0;
     const tax = subtotal * 0.05;
     const grandTotal = subtotal + deliveryFee + tax;
+    const orderId = `ORD${Date.now()}`;
 
     const newOrder: Order = {
-      id: `ORD${Date.now()}`,
+      id: orderId,
+      userId: currentUser?.uid || "anonymous",
       items: [...cartItems],
       totalPrice: subtotal,
       deliveryFee,
@@ -92,12 +127,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       grandTotal,
       orderDate: new Date().toISOString(),
       paymentMethod,
+      status: "pending"
     };
 
-    const updatedOrders = [newOrder, ...orders];
-    setOrders(updatedOrders);
-    localStorage.setItem('digitalChefOrders', JSON.stringify(updatedOrders));
-    clearCart();
+    try {
+      // Save order to Cloud Firestore
+      await setDoc(doc(db, "orders", orderId), newOrder);
+      
+      // Update local state
+      setOrders((prevOrders) => [newOrder, ...prevOrders]);
+    } catch (err) {
+      console.error("Error saving order to Firestore:", err);
+      // Fallback: save to state & localStorage
+      const updatedOrders = [newOrder, ...orders];
+      setOrders(updatedOrders);
+      localStorage.setItem('digitalChefOrders', JSON.stringify(updatedOrders));
+    } finally {
+      clearCart();
+    }
   };
 
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
