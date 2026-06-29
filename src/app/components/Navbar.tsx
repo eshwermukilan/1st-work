@@ -24,6 +24,7 @@ export function Navbar() {
     { path: "/menu", label: "Menu" },
     { path: "/about", label: "About" },
     { path: "/contact", label: "Contact" },
+    ...(currentUser ? [{ path: "/orders", label: "Orders" }] : []),
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -168,18 +169,6 @@ export function Navbar() {
                     <p className="text-xs text-gray-500">Logged in as</p>
                     <p className="text-sm font-semibold text-white truncate">{currentUser.displayName || currentUser.email}</p>
                   </div>
-                  <Link
-                    to="/orders"
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`px-4 py-2 rounded-lg transition-colors ${
-                      isActive("/orders")
-                        ? "bg-pink-500/10 text-pink-500"
-                        : "text-gray-300 hover:bg-gray-800"
-                    }`}
-                  >
-                    <Package className="w-4 h-4 inline mr-2" />
-                    My Orders
-                  </Link>
                   <button
                     onClick={() => {
                       handleLogout();
