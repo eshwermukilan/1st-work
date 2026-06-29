@@ -7,7 +7,7 @@ import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
 import { Input } from "../components/ui/input";
 import { Textarea } from "../components/ui/textarea";
-import { CheckCircle, CreditCard, Wallet, Package } from "lucide-react";
+import { CheckCircle, CreditCard, Wallet, Package, MapPin } from "lucide-react";
 import { useNavigate, Link } from "react-router";
 
 export function Checkout() {
@@ -29,7 +29,12 @@ export function Checkout() {
   const [pinCode, setPinCode] = useState("600017");
   const [landmark, setLandmark] = useState("");
   const [instructions, setInstructions] = useState("");
+
+  // Multiple Addresses States
+  const [addresses, setAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("new");
   const [saveToProfile, setSaveToProfile] = useState(true);
+  const [newAddressLabel, setNewAddressLabel] = useState("Home");
 
   // Load profile details from Firestore on mount
   useEffect(() => {
@@ -47,11 +52,21 @@ export function Checkout() {
           else if (currentUser.displayName) setName(currentUser.displayName);
 
           if (data.phone) setPhone(data.phone);
-          if (data.addressLine) setAddressLine(data.addressLine);
-          if (data.city) setCity(data.city);
-          if (data.state) setState(data.state);
-          if (data.pinCode) setPinCode(data.pinCode);
-          if (data.landmark) setLandmark(data.landmark);
+
+          const savedAddrs = data.addresses || [];
+          setAddresses(savedAddrs);
+
+          // Auto-fill with the first saved address by default if they have any
+          if (savedAddrs.length > 0) {
+            const firstAddr = savedAddrs[0];
+            setSelectedAddressId(firstAddr.id);
+            setAddressLine(firstAddr.addressLine);
+            setCity(firstAddr.city);
+            setState(firstAddr.state);
+            setPinCode(firstAddr.pinCode);
+            setLandmark(firstAddr.landmark || "");
+            setSaveToProfile(false); // No need to save to profile since it's already a saved one
+          }
         } else if (currentUser.displayName) {
           setName(currentUser.displayName);
         }
@@ -62,6 +77,28 @@ export function Checkout() {
 
     fetchProfile();
   }, [currentUser]);
+
+  const handleSelectAddress = (id: string) => {
+    setSelectedAddressId(id);
+    if (id === "new") {
+      setAddressLine("");
+      setCity("Chennai");
+      setState("Tamil Nadu");
+      setPinCode("600017");
+      setLandmark("");
+      setSaveToProfile(true);
+    } else {
+      const addr = addresses.find((a) => a.id === id);
+      if (addr) {
+        setAddressLine(addr.addressLine);
+        setCity(addr.city);
+        setState(addr.state);
+        setPinCode(addr.pinCode);
+        setLandmark(addr.landmark || "");
+        setSaveToProfile(false);
+      }
+    }
+  };
 
   const deliveryFee = totalPrice > 0 ? 40 : 0;
   const tax = totalPrice * 0.05;
@@ -78,16 +115,29 @@ export function Checkout() {
 
     setLoading(true);
     try {
-      // 1. Optional: Save these details back to user's database profile
-      if (saveToProfile && currentUser) {
-        await setDoc(doc(db, "users", currentUser.uid), {
-          name,
-          phone,
+      // 1. If "new" is selected and save checkbox is ticked, write to Firebase profile
+      if (selectedAddressId === "new" && saveToProfile && currentUser) {
+        const newAddress = {
+          id: `addr_${Date.now()}`,
+          label: newAddressLabel,
           addressLine,
           city,
           state,
           pinCode,
-          landmark,
+          landmark
+        };
+        const updatedAddresses = [...addresses, newAddress];
+        await setDoc(doc(db, "users", currentUser.uid), {
+          name,
+          phone,
+          addresses: updatedAddresses,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      } else if (currentUser) {
+        // Just sync phone / contact changes if they updated it
+        await setDoc(doc(db, "users", currentUser.uid), {
+          name,
+          phone,
           updatedAt: new Date().toISOString()
         }, { merge: true });
       }
@@ -212,6 +262,46 @@ export function Checkout() {
                 <CardContent className="p-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Delivery Address</h2>
                   <div className="space-y-4">
+                    
+                    {/* Saved Addresses Quick Selector */}
+                    {addresses.length > 0 && (
+                      <div className="mb-6 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1">
+                          <MapPin className="w-4 h-4 text-pink-500" />
+                          Deliver to saved address:
+                        </label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {addresses.map((addr) => (
+                            <button
+                              type="button"
+                              key={addr.id}
+                              onClick={() => handleSelectAddress(addr.id)}
+                              className={`p-3 rounded-xl border text-left cursor-pointer transition-all duration-200 ${
+                                selectedAddressId === addr.id
+                                  ? "bg-pink-500/10 border-pink-500 text-pink-600 shadow-sm"
+                                  : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                              }`}
+                            >
+                              <span className="block font-bold text-[10px] uppercase text-gray-400 mb-1">{addr.label}</span>
+                              <span className="block text-xs font-semibold truncate">{addr.addressLine}</span>
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAddress("new")}
+                            className={`p-3 rounded-xl border text-center cursor-pointer transition-all duration-200 ${
+                              selectedAddressId === "new"
+                                ? "bg-pink-500/10 border-pink-500 text-pink-600 shadow-sm"
+                                : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"
+                            }`}
+                          >
+                            <span className="block font-bold text-[10px] uppercase text-gray-400 mb-1">+ New</span>
+                            <span className="block text-xs font-semibold text-gray-500">Other Address</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Address Line *
@@ -287,18 +377,47 @@ export function Checkout() {
                       />
                     </div>
 
-                    <div className="pt-2 flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id="saveProfile"
-                        checked={saveToProfile}
-                        onChange={(e) => setSaveToProfile(e.target.checked)}
-                        className="w-4 h-4 text-pink-500 rounded border-gray-300 focus:ring-pink-500"
-                      />
-                      <label htmlFor="saveProfile" className="text-sm font-semibold text-gray-700 cursor-pointer">
-                        Save this address to my profile details for future orders
-                      </label>
-                    </div>
+                    {/* New Address Saving Controls */}
+                    {selectedAddressId === "new" && (
+                      <div className="pt-4 border-t border-gray-100 mt-4 space-y-3">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="saveProfile"
+                            checked={saveToProfile}
+                            onChange={(e) => setSaveToProfile(e.target.checked)}
+                            className="w-4 h-4 text-pink-500 rounded border-gray-300 focus:ring-pink-500 cursor-pointer"
+                          />
+                          <label htmlFor="saveProfile" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
+                            Save this address to my profile for future orders
+                          </label>
+                        </div>
+
+                        {saveToProfile && (
+                          <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-2">
+                              Save address as:
+                            </label>
+                            <div className="flex gap-2 max-w-xs">
+                              {["Home", "Work", "Other"].map((l) => (
+                                <button
+                                  type="button"
+                                  key={l}
+                                  onClick={() => setNewAddressLabel(l)}
+                                  className={`flex-1 py-1.5 px-3 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                                    newAddressLabel === l
+                                      ? "bg-pink-500/10 border-pink-500 text-pink-500 shadow-sm"
+                                      : "bg-white border-gray-200 text-gray-500 hover:border-gray-300"
+                                  }`}
+                                >
+                                  {l}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
