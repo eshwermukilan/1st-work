@@ -2,6 +2,7 @@ import { useCart } from "../context/CartContext";
 import { Card, CardContent } from "../components/ui/card";
 import { Package, Clock, CreditCard, ShoppingBag } from "lucide-react";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
+import { Badge } from "../components/ui/badge";
 
 export function Orders() {
   const { orders } = useCart();
@@ -15,6 +16,37 @@ export function Orders() {
       hour: "2-digit",
       minute: "2-digit",
     });
+  };
+
+  const getStatusBadge = (status?: string) => {
+    const s = status?.toLowerCase() || "pending";
+    switch (s) {
+      case "delivered":
+        return (
+          <Badge className="bg-green-500 hover:bg-green-600 text-white border-transparent py-1 px-3 text-xs font-semibold rounded-full shadow-sm">
+            Delivered
+          </Badge>
+        );
+      case "preparing":
+        return (
+          <Badge className="bg-blue-500 hover:bg-blue-600 text-white border-transparent py-1 px-3 text-xs font-semibold rounded-full shadow-sm animate-pulse">
+            Preparing
+          </Badge>
+        );
+      case "out_for_delivery":
+        return (
+          <Badge className="bg-purple-500 hover:bg-purple-600 text-white border-transparent py-1 px-3 text-xs font-semibold rounded-full shadow-sm animate-pulse">
+            Out for Delivery
+          </Badge>
+        );
+      case "pending":
+      default:
+        return (
+          <Badge className="bg-orange-500 hover:bg-orange-600 text-white border-transparent py-1 px-3 text-xs font-semibold rounded-full shadow-sm">
+            Pending
+          </Badge>
+        );
+    }
   };
 
   return (
@@ -49,25 +81,28 @@ export function Orders() {
         ) : (
           <div className="space-y-6">
             {orders.map((order) => (
-              <Card key={order.id} className="shadow-lg overflow-hidden">
+              <Card key={order.id} className="shadow-lg overflow-hidden border border-gray-100">
                 <CardContent className="p-0">
                   {/* Order Header */}
-                  <div className="bg-gradient-to-r from-pink-500 to-purple-500 text-white p-6">
+                  <div className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 text-white p-6">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                       <div className="flex items-center gap-3">
-                        <Package className="w-6 h-6" />
+                        <Package className="w-6 h-6 text-pink-500" />
                         <div>
-                          <h3 className="font-bold text-lg">Order #{order.id}</h3>
-                          <div className="flex items-center gap-2 text-pink-100 text-sm mt-1">
-                            <Clock className="w-4 h-4" />
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <h3 className="font-bold text-lg">Order #{order.id}</h3>
+                            {getStatusBadge(order.status)}
+                          </div>
+                          <div className="flex items-center gap-2 text-gray-400 text-sm mt-1">
+                            <Clock className="w-4 h-4 text-gray-500" />
                             <span>{formatDate(order.orderDate)}</span>
                           </div>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-2xl font-bold">₹{order.grandTotal.toFixed(2)}</div>
-                        <div className="flex items-center gap-2 text-pink-100 text-sm mt-1">
-                          <CreditCard className="w-4 h-4" />
+                        <div className="text-2xl font-bold text-pink-500">₹{order.grandTotal.toFixed(2)}</div>
+                        <div className="flex items-center gap-2 text-gray-400 text-sm mt-1 justify-start md:justify-end">
+                          <CreditCard className="w-4 h-4 text-gray-500" />
                           <span>{order.paymentMethod}</span>
                         </div>
                       </div>
@@ -81,9 +116,9 @@ export function Orders() {
                       {order.items.map((item) => (
                         <div
                           key={item.id}
-                          className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"
+                          className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100 hover:shadow-sm transition-shadow"
                         >
-                          <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                          <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-white border border-gray-200">
                             <ImageWithFallback
                               src={item.image}
                               alt={item.name}
@@ -92,7 +127,7 @@ export function Orders() {
                           </div>
                           <div className="flex-1">
                             <h5 className="font-semibold text-gray-900">{item.name}</h5>
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-gray-500 mt-0.5">
                               Quantity: {item.quantity} × ₹{item.price}
                             </p>
                           </div>
@@ -103,6 +138,77 @@ export function Orders() {
                           </div>
                         </div>
                       ))}
+                    </div>
+
+                    {/* Order Tracking Stepper (Show for active tracking) */}
+                    <div className="mt-8 p-6 bg-gray-50 rounded-2xl border border-gray-200 shadow-inner">
+                      <h5 className="font-bold text-gray-800 mb-6 text-sm flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-pink-500 animate-ping"></span>
+                        Live Delivery Progress
+                      </h5>
+                      <div className="flex items-center justify-between text-xs font-semibold relative max-w-xl mx-auto px-4">
+                        {/* Connecting Line */}
+                        <div className="absolute top-[14px] left-[12%] right-[12%] h-[3px] bg-gray-200 z-0">
+                          <div 
+                            className="h-full bg-gradient-to-r from-pink-500 to-purple-500 transition-all duration-700" 
+                            style={{ 
+                              width: 
+                                order.status === "pending" ? "0%" : 
+                                order.status === "preparing" ? "50%" : 
+                                order.status === "out_for_delivery" ? "100%" : 
+                                order.status === "delivered" ? "100%" : "0%"
+                            }}
+                          />
+                        </div>
+
+                        {/* Step 1: Placed */}
+                        <div className="flex flex-col items-center z-10">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                            ["pending", "preparing", "out_for_delivery", "delivered"].includes(order.status || "")
+                              ? "bg-pink-500 border-pink-500 text-white shadow-md shadow-pink-500/20" 
+                              : "bg-white border-gray-300 text-gray-400"
+                          }`}>
+                            ✓
+                          </div>
+                          <span className="mt-2 text-[10px] text-gray-600 font-medium">Placed</span>
+                        </div>
+
+                        {/* Step 2: Preparing */}
+                        <div className="flex flex-col items-center z-10">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                            ["preparing", "out_for_delivery", "delivered"].includes(order.status || "")
+                              ? "bg-pink-500 border-pink-500 text-white shadow-md shadow-pink-500/20" 
+                              : "bg-white border-gray-300 text-gray-400"
+                          }`}>
+                            👨‍🍳
+                          </div>
+                          <span className="mt-2 text-[10px] text-gray-600 font-medium">Kitchen</span>
+                        </div>
+
+                        {/* Step 3: Out for Delivery */}
+                        <div className="flex flex-col items-center z-10">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                            ["out_for_delivery", "delivered"].includes(order.status || "")
+                              ? "bg-pink-500 border-pink-500 text-white shadow-md shadow-pink-500/20" 
+                              : "bg-white border-gray-300 text-gray-400"
+                          }`}>
+                            🏍️
+                          </div>
+                          <span className="mt-2 text-[10px] text-gray-600 font-medium">On Way</span>
+                        </div>
+
+                        {/* Step 4: Delivered */}
+                        <div className="flex flex-col items-center z-10">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                            order.status === "delivered"
+                              ? "bg-green-500 border-green-500 text-white shadow-md shadow-green-500/20" 
+                              : "bg-white border-gray-300 text-gray-400"
+                          }`}>
+                            🏠
+                          </div>
+                          <span className="mt-2 text-[10px] text-gray-600 font-medium">Delivered</span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Order Summary */}
